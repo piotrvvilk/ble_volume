@@ -1,0 +1,38 @@
+//#include <nordic/nrf52840_qiaa.dtsi>
+//#include "nrf52840dk_nrf52840-pinctrl.dtsi"
+//#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+	buttons {
+		compatible = "gpio-keys";
+		button4: button_4 {
+			gpios = <&gpio0 28 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "Push button switch 4";
+			//zephyr,code = <INPUT_KEY_0>;
+		};
+		button5: button_5 {
+			gpios = <&gpio0 29 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "Push button switch 5";
+			//zephyr,code = <INPUT_KEY_1>;
+		};
+		button6: button_6 {
+			gpios = <&gpio0 30 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "Push button switch 6";
+			//zephyr,code = <INPUT_KEY_2>;
+		};
+		button7: button_7 {
+			gpios = <&gpio0 31 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "Push button switch 7";
+			//zephyr,code = <INPUT_KEY_3>;
+		};
+	};
+};
+
+/ {
+    aliases {
+        sw4 = &button4;
+        sw5 = &button5;
+        sw6 = &button6;
+        sw7 = &button7;
+    };
+};

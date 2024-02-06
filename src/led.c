@@ -1,0 +1,406 @@
+//---------------------------------------------------------------------------
+// Includes
+//---------------------------------------------------------------------------
+#include <stddef.h>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
+
+#include <zephyr/kernel.h>
+#include <zephyr/kernel_structs.h>
+#include <zephyr/device.h>
+#include <zephyr/types.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/sys/byteorder.h>
+#include <soc.h>
+#include <assert.h>
+#include <zephyr/spinlock.h>
+#include <zephyr/settings/settings.h>
+
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/led_strip.h>
+#include <zephyr/drivers/led.h>
+#include <zephyr/pm/pm.h>
+#include <zephyr/pm/device.h>
+
+#include <zephyr/sys/printk.h>
+#include <zephyr/logging/log.h>
+
+#include "main.h"
+#include "board.h"
+#include "led.h"
+#include "matrix_keyboard.h"
+#include "config_app.h"
+#include "charger.h"
+
+//---------------------------------------------------------------------------
+// Definitions 
+//---------------------------------------------------------------------------
+LOG_MODULE_REGISTER(my_bmk_led,LOG_LEVEL_DBG);
+
+#define STRIP_NODE			DT_ALIAS(led_strip)
+#define STRIP_NUM_PIXELS	DT_PROP(DT_ALIAS(led_strip), chain_length)
+
+#define RGB(_r, _g, _b) { .r = (_r), .b = (_b), .g = (_g) }
+
+const struct led_rgb colors[] = {
+	RGB(0x00, 0x00, 0x00), 						/* black */
+	RGB(0x20, 0x2F, 0x2F), 						/* white */
+	RGB(0x2f, 0x00, 0x00), 						/* red */
+	RGB(0x00, 0x2f, 0x00), 						/* green */
+	RGB(0x00, 0x00, 0x2f), 						/* blue */
+	RGB(0x2f, 0x2f, 0x00), 						/* yellow */
+	RGB(0x2f, 0x00, 0x2f), 						/* violet */
+	RGB(0x00, 0x2f, 0x2f), 						/* turquoise */
+	RGB(0x2F, 0x17, 0x00) 						/* orange */
+};
+
+struct led_rgb pixels[STRIP_NUM_PIXELS];
+
+static const struct device *const strip = DEVICE_DT_GET(STRIP_NODE);
+
+const struct device *const spi0_dev = DEVICE_DT_GET(DT_NODELABEL(spi0));
+
+typedef union pat_def{
+	struct led_rgb pix[STRIP_NUM_PIXELS];
+	uint8_t data[4*STRIP_NUM_PIXELS];
+}pat_def_t;
+
+static pat_def_t my_pix;						     						//led strip buffer
+const uint8_t *current_pattern;												//pointer to current led strip pattern
+
+//--------------------------------------------------------------------------- LED PWM
+#define LED_PWM_NODE_ID	 DT_COMPAT_GET_ANY_STATUS_OKAY(pwm_leds)
+
+const char *led_label[] = {DT_FOREACH_CHILD_SEP_VARGS(LED_PWM_NODE_ID, DT_PROP_OR, (,), label, NULL)};
+
+const int num_leds = ARRAY_SIZE(led_label);
+
+uint16_t level;
+uint8_t led_theme;
+
+int err;
+//const struct device *const led_pwm = DEVICE_DT_GET(DT_NODELABEL(pwm0));
+const struct device *led_pwm;
+
+//uint32_t led_demo_counter;													//charging counter - led on keypad (time between following sequences )
+uint32_t led_pwm_counter;													//charging counter - led on bottom side 
+
+//uint32_t led_strip_charged_counter;											//time between next strip driving when batt is charged (prevent led driving all the time) 
+uint32_t led_pwm_charged_counter;											//time between next led pwm driving when batt is charged (--||--)
+
+bool refresh_led_flag;														//refresh led after usb cable or chargin state is changed	
+
+//---------------------------------------------------------------------------
+// Implementation 
+//---------------------------------------------------------------------------
+//=================================================================================================================
+int led_pwm_init(void)
+{
+	led_pwm = DEVICE_DT_GET(LED_PWM_NODE_ID);
+	if (!device_is_ready(led_pwm)) 
+	{
+		#ifdef DEBUG_LOG_LED
+			LOG_ERR("Device %s is not ready", led_pwm->name);
+		#endif
+		return BUSY;
+	}
+	else
+	{
+		return RESULT_OK;
+	}
+}
+
+//=================================================================================================================
+int led_strip_init(void)
+{
+	if(device_is_ready(strip)) 
+	{
+        return RESULT_OK;
+	} 
+	else 
+	{
+		return RESULT_ERR;
+	}
+}
+
+//=================================================================================================================
+int set_button_color(uint8_t position, uint8_t color)
+{
+	int rc;
+	
+	position-=1;
+	memcpy(&my_pix.pix[position], &colors[color], sizeof(struct led_rgb));
+	rc = led_strip_update_rgb(strip, my_pix.pix, STRIP_NUM_PIXELS);
+    return rc;
+}
+
+//=================================================================================================================
+int set_button_pattern(const uint8_t *pattern)
+{
+	int rc;
+
+	memcpy(&my_pix.data, pattern, 40);
+	rc = led_strip_update_rgb(strip, my_pix.pix, STRIP_NUM_PIXELS);
+	return rc;
+}
+
+//=================================================================================================================
+int set_pattern_without_one_button(uint32_t position)
+{
+	int rc;
+
+	memcpy(&my_pix.pix[position-1], &colors[COLOR_BLACK], sizeof(struct led_rgb));
+	rc = led_strip_update_rgb(strip, my_pix.pix, STRIP_NUM_PIXELS);
+	return rc;
+}
+
+//=================================================================================================================
+void thread_led(void)
+{
+	led_pwm_init();
+	led_strip_init();
+	k_msleep(100);
+	vled_on();
+	k_msleep(100);
+
+//-------------------------------------------------------------------------------------- led pwm test
+	#ifdef MAKE_LED_PWM_TEST
+		for(int i=0;i<5;i++)
+		{
+			err = led_set_brightness(led_pwm, LED_RED_PWM, 100);
+			k_msleep(500);
+
+			err = led_off(led_pwm, LED_RED_PWM); 
+			err = led_set_brightness(led_pwm, LED_GREEN_PWM, 100);
+			k_msleep(500);
+
+			err = led_off(led_pwm, LED_GREEN_PWM); 
+			err = led_set_brightness(led_pwm, LED_BLUE_PWM, 100);
+			k_msleep(500);
+
+			err = led_off(led_pwm, LED_BLUE_PWM); 
+		}
+	#endif
+
+//-------------------------------------------------------------------------------------- led strip test
+	#ifdef MAKE_LED_STRIP_TEST														 
+		for(int i=0;i<5;i++)
+		{
+			current_pattern = red_pattern;
+			set_button_pattern(current_pattern);
+			k_msleep(500);
+			current_pattern = green_pattern;
+			set_button_pattern(current_pattern);
+			k_msleep(500);
+			current_pattern = blue_pattern;
+			set_button_pattern(current_pattern);
+			k_msleep(500);
+		}
+
+		current_pattern = turn_off_pattern;
+		set_button_pattern(current_pattern);
+
+	#endif	
+
+//--------------------------------------------------------------------------------------
+	device_theme=THEME_INFO;
+	set_button_pattern(info_pattern);
+
+ 	while(1)
+ 	{
+//-------------------------------------------------------------------------------------- pairing process						
+		if(led_pairing_state==PAIRING)
+		{
+			pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_RESUME);
+			vled_on()
+			k_msleep(20);
+			led_theme=device_theme;
+			current_pattern = pairing_pattern;	
+			set_button_pattern(current_pattern);
+					
+			led_off(led_pwm, LED_RED_PWM); 
+			led_off(led_pwm, LED_GREEN_PWM); 
+			led_off(led_pwm, LED_BLUE_PWM); 
+			led_pairing_state=PAIRING_ON_DISPLAY;
+		}
+
+		else if(led_pairing_state==PAIRED)
+		{
+			pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_RESUME);
+			vled_on()
+			k_msleep(20);
+			led_theme=device_theme;
+			current_pattern = turn_off_pattern;	
+			set_button_pattern(current_pattern);
+					
+			led_set_brightness(led_pwm, LED_GREEN_PWM, 100);				
+			led_off(led_pwm, LED_RED_PWM);				
+			led_off(led_pwm, LED_BLUE_PWM); 
+			led_pairing_state=PAIRED_ON_DISPLAY;
+		}
+
+		else if(led_pairing_state==PAIRING_CANCELED)
+		{
+			pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_RESUME);
+			vled_on()
+			k_msleep(20);
+			led_theme=device_theme;
+			current_pattern = turn_off_pattern;	
+			set_button_pattern(current_pattern);
+					
+			led_set_brightness(led_pwm, LED_RED_PWM, 100);				
+			led_off(led_pwm, LED_GREEN_PWM);				
+			led_off(led_pwm, LED_BLUE_PWM); 
+			led_pairing_state=PAIRING_CANCELED_ON_DISPLAY;
+		}
+		else
+		{
+			if((device_theme!=led_theme)||(refresh_led_flag==true))
+			{
+				refresh_led_flag=false;
+				#ifdef DEBUG_LOG_LED
+					LOG_ERR("REFRESH LED STATE\n");
+				#endif
+				
+				if(device_theme==THEME_GTA)
+				{
+					pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_RESUME);
+					vled_on()																//led power on
+					k_msleep(20);															//wait to led inside driver
+					led_theme=device_theme;													//don't repeat this condition all the time 
+					current_pattern = gta_pattern;											//set current theme		
+					set_button_pattern(current_pattern);									//turn on led strip
+
+					if(charger_data.charger_status==CHARGER_DISABLE)						//set bottom led color only if charger disable
+					{
+						led_set_brightness(led_pwm, LED_RED_PWM, 100);						//set appropriate PWM LED PCB bottom
+						led_off(led_pwm, LED_GREEN_PWM); 
+						led_off(led_pwm, LED_BLUE_PWM); 
+					}
+				}
+
+				if(device_theme==THEME_ALTIUM)											//another theme 
+				{
+					pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_RESUME);
+					vled_on()
+					k_msleep(20);
+					led_theme=device_theme;
+					current_pattern = altium_pattern;
+					set_button_pattern(current_pattern);	
+
+					if(charger_data.charger_status==CHARGER_DISABLE)
+					{
+						led_set_brightness(led_pwm, LED_RED_PWM, 100);
+						led_set_brightness(led_pwm, LED_GREEN_PWM, 50);
+						led_off(led_pwm, LED_BLUE_PWM); 
+					}
+				}
+
+				if(device_theme==THEME_VSC)
+				{
+					pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_RESUME);
+					vled_on()
+					k_msleep(20);
+					led_theme=device_theme;
+					current_pattern = vsc_pattern;	
+					set_button_pattern(current_pattern);
+
+					
+					if(charger_data.charger_status==CHARGER_DISABLE)
+					{
+						led_off(led_pwm, LED_RED_PWM); 
+						led_off(led_pwm, LED_GREEN_PWM); 
+						led_set_brightness(led_pwm, LED_BLUE_PWM, 100);
+					}
+				}
+
+				if(device_theme==THEME_INFO)
+				{
+					pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_RESUME);
+					vled_on()
+					k_msleep(20);
+					led_theme=device_theme;
+					current_pattern = info_pattern;	
+					set_button_pattern(current_pattern);
+
+					if(charger_data.charger_status==CHARGER_DISABLE)
+					{
+						led_set_brightness(led_pwm, LED_RED_PWM, 80);
+						led_set_brightness(led_pwm, LED_GREEN_PWM, 70);
+						led_set_brightness(led_pwm, LED_BLUE_PWM, 80);
+					}
+				}
+
+				if(device_theme==NO_THEME)
+				{
+					led_theme=device_theme;
+					current_pattern = turn_off_pattern;
+					set_button_pattern(current_pattern);
+				
+					led_off(led_pwm, LED_RED_PWM); 
+					led_off(led_pwm, LED_GREEN_PWM); 
+					led_off(led_pwm, LED_BLUE_PWM); 
+
+					if(charger_data.usb_status==USB_DISCONNECTED)							//turn off boost only when usb is unpluged
+					{
+						vled_off()
+						pm_device_action_run(spi0_dev, PM_DEVICE_ACTION_SUSPEND);
+					}
+				}
+			}
+		}
+
+		if(led_key_pressed!=0)															//if key pressed
+		{
+			set_pattern_without_one_button(led_key_pressed);							//turn off pressed key
+			k_msleep(250);
+			set_button_pattern(current_pattern);										//turn on 
+			led_key_pressed=0;															//reset flag
+		}
+
+//-------------------------------------------------------------------------------------- charging bat: demo on bottom leds 
+		if(charger_data.charger_status==CHARGER_CHARGING)
+		{
+			if(led_pwm_counter==2)
+			{
+				led_off(led_pwm, LED_RED_PWM); 
+				led_off(led_pwm, LED_BLUE_PWM); 
+			}
+
+			led_pwm_counter+=2;
+
+			if((led_pwm_counter>1)&&(led_pwm_counter<100))
+			{	
+				led_set_brightness(led_pwm, LED_GREEN_PWM, led_pwm_counter);			//up
+			}
+			else if((led_pwm_counter>99)&&(led_pwm_counter<202))
+			{
+				led_set_brightness(led_pwm, LED_GREEN_PWM, (200-led_pwm_counter));		//and down
+			}
+
+			if(led_pwm_counter==200)													//turn off for a while		
+			{
+				led_off(led_pwm, LED_GREEN_PWM); 
+			}
+
+			if(led_pwm_counter>240) led_pwm_counter=0;									//and from the beginning
+		}
+
+//-------------------------------------------------------------------------------------- battery charged: demo on bottom leds 
+		if(charger_data.charger_status==CHARGER_DONE)
+		{
+			if(led_pwm_charged_counter==0)												//prevent led driving all the time
+			{
+				led_set_brightness(led_pwm, LED_GREEN_PWM, 50);			
+			}
+			led_pwm_charged_counter++;
+			if(led_pwm_charged_counter>100) led_pwm_charged_counter=0;
+		}
+
+//-------------------------------------------------------------------------------------- 
+		k_msleep(50);
+	}
+}
+
+//=================================================================================================================
