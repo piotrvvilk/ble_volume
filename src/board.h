@@ -38,8 +38,8 @@
 
 #define	SW4_NODE		DT_ALIAS(sw4)
 #define	SW5_NODE		DT_ALIAS(sw5)
-#define	SW6_NODE		DT_ALIAS(sw6)
-#define	SW7_NODE		DT_ALIAS(sw7)
+// #define	SW6_NODE		DT_ALIAS(sw6)
+// #define	SW7_NODE		DT_ALIAS(sw7)
 // #define	ROW1_NODE		DT_ALIAS(row1)
 // #define	ROW2_NODE		DT_ALIAS(row2)
 // #define	ROW3_NODE		DT_ALIAS(row3)
@@ -69,8 +69,8 @@
 
 extern const struct gpio_dt_spec switch4;
 extern const struct gpio_dt_spec switch5;
-extern const struct gpio_dt_spec switch6;
-extern const struct gpio_dt_spec switch7;
+// extern const struct gpio_dt_spec switch6;
+// extern const struct gpio_dt_spec switch7;
 // extern const struct gpio_dt_spec row1;
 // extern const struct gpio_dt_spec row2;
 // extern const struct gpio_dt_spec row3;

@@ -39,6 +39,7 @@
 #include "main.h"
 #include "board.h"
 #include "version.h"
+#include "usb_hid_codes.h"
 //#include "led.h"
 //#include "display.h"
 //#include "i2c_devices.h"
@@ -954,6 +955,9 @@ int hid_buttons_release(const uint8_t *keys, size_t cnt)
 int main(void)
 {
 	int err;
+	uint32_t sw4_block_counter=0;
+	uint32_t sw4_counter=0;
+	uint8_t key_now;
 	
 	LOG_INF("START BLE VOLUME\n");
 	LOG_INF("%s\n",STR_VER);
@@ -1079,6 +1083,31 @@ int main(void)
 			bas_counter=0;
 			bas_notify();
 		}
+
+
+		if(gpio_pin_get_dt(&switch4)==1)									
+		{
+			if(sw4_block_counter==0)
+			{
+				sw4_counter++;
+				if(sw4_counter>2)
+				{
+					LOG_INF("SW1\n");
+					sw4_block_counter=1;						//blokuj
+					key_now = KEY_ENTER;
+					hid_buttons_press(&key_now, 1);
+					k_msleep(100);
+					hid_buttons_release(&key_now, 1);			
+					k_msleep(150);
+				}
+			}
+		}
+		else
+		{
+			sw4_block_counter=0;	
+			sw4_counter=0;
+		}
+
 
 //--------------------------------------------------------------- 
 		k_sleep(K_MSEC(100));

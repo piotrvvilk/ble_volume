@@ -49,8 +49,8 @@
 
 const struct gpio_dt_spec switch4 = GPIO_DT_SPEC_GET(SW4_NODE, gpios);
 const struct gpio_dt_spec switch5 = GPIO_DT_SPEC_GET(SW5_NODE, gpios);
-const struct gpio_dt_spec switch6 = GPIO_DT_SPEC_GET(SW6_NODE, gpios);
-const struct gpio_dt_spec switch7 = GPIO_DT_SPEC_GET(SW7_NODE, gpios);
+//const struct gpio_dt_spec switch6 = GPIO_DT_SPEC_GET(SW6_NODE, gpios);
+///const struct gpio_dt_spec switch7 = GPIO_DT_SPEC_GET(SW7_NODE, gpios);
 // const struct gpio_dt_spec col2 = GPIO_DT_SPEC_GET(COL2_NODE, gpios);
 // const struct gpio_dt_spec col3 = GPIO_DT_SPEC_GET(COL3_NODE, gpios);
 // const struct gpio_dt_spec col4 = GPIO_DT_SPEC_GET(COL4_NODE, gpios);
@@ -111,11 +111,11 @@ int gpio_init(void)
 	ret = gpio_pin_configure_dt(&switch5, GPIO_INPUT);
 	if(ret!=0) return ret;
 
-	ret = gpio_pin_configure_dt(&switch6, GPIO_INPUT);
-	if(ret!=0) return ret;
+	// ret = gpio_pin_configure_dt(&switch6, GPIO_INPUT);
+	// if(ret!=0) return ret;
 
-	ret = gpio_pin_configure_dt(&switch7, GPIO_INPUT);
-	if(ret!=0) return ret;
+	// ret = gpio_pin_configure_dt(&switch7, GPIO_INPUT);
+	// if(ret!=0) return ret;
 	
 	// charger_off();
 
