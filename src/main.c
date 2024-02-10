@@ -960,9 +960,10 @@ int main(void)
 	const struct device *const dev_qdec = DEVICE_DT_GET(DT_ALIAS(qdec0));
 
 	int err;
-	uint32_t sw4_block_counter=0;
-	uint32_t sw4_counter=0;
-	uint8_t key_now;
+	button_filter_t button_4;
+	button_filter_t button_en;
+
+	uint8_t key_now[2];
 
 	struct sensor_value val;
 	int volume=0;
@@ -1022,7 +1023,10 @@ int main(void)
     	LOG_INF("Qdec device is not ready\n");
     }
 
-	//qenc_emulate_init();??????
+	button_4.counter=0;
+	button_4.blocker=0;
+	button_en.counter=0;
+	button_en.blocker=0;
 
 	//usb_detection_off();	
 	//charger_off();
@@ -1099,28 +1103,52 @@ int main(void)
 			bas_notify();
 		}
 
+//---------------------------------------------------------------
 		if(gpio_pin_get_dt(&switch4)==1)									
 		{
-			if(sw4_block_counter==0)
+			if(button_4.blocker==0)
 			{
-				sw4_counter++;
-				if(sw4_counter>2)
+				button_4.counter++;
+				if(button_4.counter>1)
 				{
 					LOG_INF("SW1\n");
-					sw4_block_counter=1;						//blokuj
+					button_4.blocker=1;						
 					//key_now = KEY_ENTER;
-					key_now = KEY_T;
-					hid_buttons_press(&key_now, 1);
-					k_msleep(50);
-					hid_buttons_release(&key_now, 1);			
-					k_msleep(150);
+					key_now[0] = KEY_T;
+					hid_buttons_press(key_now, 1);
+					k_msleep(20);
+					hid_buttons_release(key_now, 1);			
 				}
 			}
 		}
 		else
 		{
-			sw4_block_counter=0;	
-			sw4_counter=0;
+			button_4.counter=0;
+			button_4.blocker=0;
+		}
+
+//---------------------------------------------------------------
+		if(gpio_pin_get_dt(&switch_en)==1)									
+		{
+			if(button_en.blocker==0)
+			{
+				button_en.counter++;
+				if(button_en.counter>1)
+				{
+					LOG_INF("MUTE\n");
+					button_en.blocker=1;						
+					key_now[0] = 0x09;
+					key_now[1] = 0xE2;
+					hid_buttons_press(key_now, 2);
+					k_msleep(20);
+					hid_buttons_release(key_now, 2);			
+				}
+			}
+		}
+		else
+		{
+			button_en.counter=0;
+			button_en.blocker=0;
 		}
 
 		if(volume==0)
@@ -1154,10 +1182,12 @@ int main(void)
 			for(int i=0; i<volume; i++)
 			{
 				//key_now = KEY_VOLUMEUP;
-				key_now = KEY_U;
-				hid_buttons_press(&key_now, 1);
+				key_now[0] = 0x09;
+				key_now[1] = 0xE9;
+				//key_now = KEY_U;
+				hid_buttons_press(key_now, 2);
 				k_msleep(20);
-				hid_buttons_release(&key_now, 1);
+				hid_buttons_release(key_now, 2);
 				k_msleep(20);
 			}
 			volume=0;			
@@ -1170,10 +1200,12 @@ int main(void)
 			for(int i=0; i<volume; i++)
 			{
 				//key_now = KEY_VOLUMEDOWN;
-				key_now = KEY_D;
-				hid_buttons_press(&key_now, 1);
+				key_now[0] = 0x09;
+				key_now[1] = 0xEA;
+				//key_now = KEY_D;
+				hid_buttons_press(key_now, 2);
 				k_msleep(20);
-				hid_buttons_release(&key_now, 1);
+				hid_buttons_release(key_now, 2);
 				k_msleep(20);
 			}
 			volume=0;			

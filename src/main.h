@@ -37,13 +37,16 @@
 #define         DISCONNECTED                    10
 
 
+typedef struct button_filter_def  
+{
+    uint32_t counter;
+    uint32_t blocker;
+}button_filter_t;   
+
 /*---------------------------------------------------------------------------*/
 /* Global objects */
 /*---------------------------------------------------------------------------*/
-extern volatile uint32_t        device_active_counter;
-extern volatile uint32_t        device_state;
-extern volatile uint32_t        lcd_pairing_state;        
-extern volatile uint32_t        led_pairing_state;
+
 
 /*---------------------------------------------------------------------------*/
 /* Public functions */

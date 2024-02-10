@@ -42,6 +42,7 @@
 
 #define	SW4_NODE		DT_ALIAS(sw4)
 #define	SW5_NODE		DT_ALIAS(sw5)
+#define	SW_EN_NODE		DT_ALIAS(swen)
 
 
 
@@ -82,6 +83,7 @@
 
 extern const struct gpio_dt_spec switch4;
 extern const struct gpio_dt_spec switch5;
+extern const struct gpio_dt_spec switch_en;
 // extern const struct gpio_dt_spec switch6;
 // extern const struct gpio_dt_spec switch7;
 // extern const struct gpio_dt_spec row1;

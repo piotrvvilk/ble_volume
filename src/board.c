@@ -51,6 +51,7 @@
 
 const struct gpio_dt_spec switch4 = GPIO_DT_SPEC_GET(SW4_NODE, gpios);
 const struct gpio_dt_spec switch5 = GPIO_DT_SPEC_GET(SW5_NODE, gpios);
+const struct gpio_dt_spec switch_en = GPIO_DT_SPEC_GET(SW_EN_NODE, gpios);
 
 
 
@@ -122,6 +123,9 @@ int gpio_init(void)
 	if(ret!=0) return ret;
 
 	ret = gpio_pin_configure_dt(&switch5, GPIO_INPUT);
+	if(ret!=0) return ret;
+
+	ret = gpio_pin_configure_dt(&switch_en, GPIO_INPUT);
 	if(ret!=0) return ret;
 
 
