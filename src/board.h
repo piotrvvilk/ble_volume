@@ -36,8 +36,21 @@
 // #define	ACCEL1_NODE		DT_ALIAS(accelint1)
 // #define	ACCEL2_NODE		DT_ALIAS(accelint2)
 
+
+
+
+
 #define	SW4_NODE		DT_ALIAS(sw4)
 #define	SW5_NODE		DT_ALIAS(sw5)
+
+
+
+
+
+
+
+
+
 // #define	SW6_NODE		DT_ALIAS(sw6)
 // #define	SW7_NODE		DT_ALIAS(sw7)
 // #define	ROW1_NODE		DT_ALIAS(row1)

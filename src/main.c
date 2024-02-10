@@ -35,6 +35,9 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/logging/log.h>
 
+#include <zephyr/device.h>
+#include <zephyr/drivers/sensor.h>
+
 #include "config_app.h"
 #include "main.h"
 #include "board.h"
@@ -954,10 +957,15 @@ int hid_buttons_release(const uint8_t *keys, size_t cnt)
 //---------------------------------------------------------------------------
 int main(void)
 {
+	const struct device *const dev_qdec = DEVICE_DT_GET(DT_ALIAS(qdec0));
+
 	int err;
 	uint32_t sw4_block_counter=0;
 	uint32_t sw4_counter=0;
 	uint8_t key_now;
+
+	struct sensor_value val;
+	int volume=0;
 	
 	LOG_INF("START BLE VOLUME\n");
 	LOG_INF("%s\n",STR_VER);
@@ -1008,6 +1016,13 @@ int main(void)
 
 		k_work_init(&pairing_work, pairing_process);
 	#endif
+
+	if (!device_is_ready(dev_qdec)) 
+	{
+    	LOG_INF("Qdec device is not ready\n");
+    }
+
+	//qenc_emulate_init();??????
 
 	//usb_detection_off();	
 	//charger_off();
@@ -1084,7 +1099,6 @@ int main(void)
 			bas_notify();
 		}
 
-
 		if(gpio_pin_get_dt(&switch4)==1)									
 		{
 			if(sw4_block_counter==0)
@@ -1094,9 +1108,10 @@ int main(void)
 				{
 					LOG_INF("SW1\n");
 					sw4_block_counter=1;						//blokuj
-					key_now = KEY_ENTER;
+					//key_now = KEY_ENTER;
+					key_now = KEY_T;
 					hid_buttons_press(&key_now, 1);
-					k_msleep(100);
+					k_msleep(50);
 					hid_buttons_release(&key_now, 1);			
 					k_msleep(150);
 				}
@@ -1108,11 +1123,65 @@ int main(void)
 			sw4_counter=0;
 		}
 
+		if(volume==0)
+		{
+			err = sensor_sample_fetch(dev_qdec);
+			if (err != 0) {
+				LOG_INF("Failed to fetch sample (%d)\n", err);
+				//return 0;
+			}
+
+			err = sensor_channel_get(dev_qdec, SENSOR_CHAN_ROTATION, &val);
+			if (err != 0) {
+				LOG_ERR("Failed to get data (%d)\n", err);
+				//return 0;
+			}
+		}
+
+		//if(val.val1>0) LOG_INF("Position = %d degrees\n", val.val1);
+
+		volume = val.val1/5;
+		volume = volume*(-1);		//zamien kierunek
+
+		if(volume>16) volume=16;
+
+		if(volume<-16) volume=-16;
+
+		if(volume>0)
+		{
+			LOG_INF("Volume up: %d \n", volume);
+
+			for(int i=0; i<volume; i++)
+			{
+				//key_now = KEY_VOLUMEUP;
+				key_now = KEY_U;
+				hid_buttons_press(&key_now, 1);
+				k_msleep(20);
+				hid_buttons_release(&key_now, 1);
+				k_msleep(20);
+			}
+			volume=0;			
+		}
+
+		if(volume<0)
+		{
+			LOG_INF("Volume down: %d \n", volume);
+			volume=volume*(-1);
+			for(int i=0; i<volume; i++)
+			{
+				//key_now = KEY_VOLUMEDOWN;
+				key_now = KEY_D;
+				hid_buttons_press(&key_now, 1);
+				k_msleep(20);
+				hid_buttons_release(&key_now, 1);
+				k_msleep(20);
+			}
+			volume=0;			
+		}
 
 //--------------------------------------------------------------- 
 		k_sleep(K_MSEC(100));
     }
-	
 }
 
 //===============================================================================================================

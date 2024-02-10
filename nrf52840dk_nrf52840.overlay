@@ -1,6 +1,6 @@
-//#include <nordic/nrf52840_qiaa.dtsi>
-//#include "nrf52840dk_nrf52840-pinctrl.dtsi"
-//#include <zephyr/dt-bindings/input/input-event-codes.h>
+// #include <nordic/nrf52840_qiaa.dtsi>
+// #include "nrf52840dk_nrf52840-pinctrl.dtsi"
+// #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
 	buttons {
@@ -28,11 +28,40 @@
 	};
 };
 
+&pinctrl {
+    qdec_default: qdec_default {							
+        group1 {
+            psels = <NRF_PSEL(QDEC_A, 1, 1)>,
+                <NRF_PSEL(QDEC_B, 1, 2)>;
+        };
+    };
+
+    qdec_sleep: qdec_sleep {								
+        group1 {
+            psels = <NRF_PSEL(QDEC_A, 1, 1)>,
+                <NRF_PSEL(QDEC_B, 1, 2)>;
+            low-power-enable;
+        };
+    };
+};
+
+&qdec {														
+	status = "okay";
+	enable-pin = <36>;
+	led-pre = <0>;
+	steps = <80>;
+	pinctrl-0 = <&qdec_default>;
+	pinctrl-1 = <&qdec_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+
 / {
     aliases {
         sw4 = &button4;
         sw5 = &button5;
-//        sw6 = &button6;
-//        sw7 = &button7;
+    //  sw6 = &button6;
+    //  sw7 = &button7;
+		qdec0=&qdec;	
     };
 };
