@@ -469,7 +469,7 @@ static void hid_init(void)
 		0xA1, 0x01,       /* Collection (Application) */
 
 		/* Keys */
-#if INPUT_REP_KEYS_REF_ID
+#if INPUT_REP_KEYS_REF_ID														//skreslone
 		0x85, INPUT_REP_KEYS_REF_ID,
 #endif
 		0x05, 0x07,       /* Usage Page (Key Codes) */
@@ -486,20 +486,20 @@ static void hid_init(void)
 		0x81, 0x01,       /* Input (Constant) reserved byte(1) */
 
 		0x95, 0x06,       /* Report Count (6) */
-		0x75, 0x08,       /* Report Size (8) */
+		0x75, 0x08,       /* Report Size (8) */										
 		0x15, 0x00,       /* Logical Minimum (0) */
-		0x25, 0x65,       /* Logical Maximum (101) */
+		0x25, 0xE7,       /* Logical Maximum (101) */								//zmiana z 0x65
 		0x05, 0x07,       /* Usage Page (Key codes) */
 		0x19, 0x00,       /* Usage Minimum (0) */
-		0x29, 0x65,       /* Usage Maximum (101) */
+		0x29, 0xE7,       /* Usage Maximum (101) */									//zmiana z 0x65
 		0x81, 0x00,       /* Input (Data, Array) Key array(6 bytes) */
 
 		/* LED */
-#if OUTPUT_REP_KEYS_REF_ID
+#if OUTPUT_REP_KEYS_REF_ID														//skreslone
 		0x85, OUTPUT_REP_KEYS_REF_ID,
 #endif
 		0x95, 0x05,       /* Report Count (5) */
-		0x75, 0x01,       /* Report Size (1) */
+		0x75, 0x01,       /* Report Size (1) */										
 		0x05, 0x08,       /* Usage Page (Page# for LEDs) */
 		0x19, 0x01,       /* Usage Minimum (1) */
 		0x29, 0x05,       /* Usage Maximum (5) */
@@ -510,8 +510,64 @@ static void hid_init(void)
 		0x91, 0x01,       /* Output (Data, Variable, Absolute), */
 				  /* Led report padding */
 
+
+        0x09, 0x05,       // Usage (Vendor Defined)								//dodane
+        0x15, 0x00,       // Logical Minimum (0)
+        0x26, 0xFF, 0x00, // Logical Maximum (255)
+        0x75, 0x08,       // Report Size (8 bit)
+        0x95, 0x02,       // Report Count (2)
+        0xB1, 0x02,       // Feature (Data, Variable, Absolute)
+
+
 		0xC0              /* End Collection (Application) */
 	};
+ 	// static const uint8_t report_map[] = {
+	// 	0x05, 0x01,       // Usage Page (Generic Desktop)
+    //     0x09, 0x06,       // Usage (Keyboard)
+    //     0xA1, 0x01,       // Collection (Application)
+    //     0x05, 0x07,       // Usage Page (Key Codes)
+    //     0x19, 0xe0,       // Usage Minimum (224)
+    //     0x29, 0xe7,       // Usage Maximum (231)
+    //     0x15, 0x00,       // Logical Minimum (0)
+    //     0x25, 0x01,       // Logical Maximum (1)
+    //     0x75, 0x01,       // Report Size (1)
+    //     0x95, 0x08,       // Report Count (8)
+    //     0x81, 0x02,       // Input (Data, Variable, Absolute)
+
+    //     0x95, 0x01,       // Report Count (1)
+    //     0x75, 0x08,       // Report Size (8)
+    //     0x81, 0x01,       // Input (Constant) reserved byte(1)
+
+    //     0x95, 0x05,       // Report Count (5)
+    //     0x75, 0x01,       // Report Size (1)
+    //     0x05, 0x08,       // Usage Page (Page# for LEDs)
+    //     0x19, 0x01,       // Usage Minimum (1)
+    //     0x29, 0x05,       // Usage Maximum (5)
+    //     0x91, 0x02,       // Output (Data, Variable, Absolute), Led report
+    //     0x95, 0x01,       // Report Count (1)
+    //     0x75, 0x03,       // Report Size (3)
+    //     0x91, 0x01,       // Output (Data, Variable, Absolute), Led report padding
+
+    //     0x95, 0x06,       // Report Count (6)
+    //     0x75, 0x08,       // Report Size (8)
+    //     0x15, 0x00,       // Logical Minimum (0)
+    //     0x25, 0xe7,       // Logical Maximum (101) // changed from 0x65 to 0xe7
+    //     0x05, 0x07,       // Usage Page (Key codes)
+    //     0x19, 0x00,       // Usage Minimum (0)
+    //     0x29, 0xe7,       // Usage Maximum (101) // changed from 0x65 to 0xe7
+    //     0x81, 0x00,       // Input (Data, Array) Key array(6 bytes)
+
+    //     0x09, 0x05,       // Usage (Vendor Defined)
+    //     0x15, 0x00,       // Logical Minimum (0)
+    //     0x26, 0xFF, 0x00, // Logical Maximum (255)
+    //     0x75, 0x08,       // Report Size (8 bit)
+    //     0x95, 0x02,       // Report Count (2)
+    //     0xB1, 0x02,       // Feature (Data, Variable, Absolute)
+
+    //     0xC0              // End Collection (Application)
+	// };
+
+
 
 	hids_init_obj.rep_map.data = report_map;
 	hids_init_obj.rep_map.size = sizeof(report_map);
@@ -961,6 +1017,7 @@ int main(void)
 
 	int err;
 	button_filter_t button_4;
+	button_filter_t button_5;
 	button_filter_t button_en;
 
 	uint8_t key_now[2];
@@ -1025,6 +1082,8 @@ int main(void)
 
 	button_4.counter=0;
 	button_4.blocker=0;
+	button_5.counter=0;
+	button_5.blocker=0;
 	button_en.counter=0;
 	button_en.blocker=0;
 
@@ -1114,9 +1173,9 @@ int main(void)
 					LOG_INF("SW1\n");
 					button_4.blocker=1;						
 					//key_now = KEY_ENTER;
-					key_now[0] = KEY_T;
+					key_now[0] = KEY_LEFTMETA;
 					hid_buttons_press(key_now, 1);
-					k_msleep(20);
+					k_msleep(50);
 					hid_buttons_release(key_now, 1);			
 				}
 			}
@@ -1125,6 +1184,30 @@ int main(void)
 		{
 			button_4.counter=0;
 			button_4.blocker=0;
+		}
+
+//---------------------------------------------------------------
+		if(gpio_pin_get_dt(&switch5)==1)									
+		{
+			if(button_5.blocker==0)
+			{
+				button_5.counter++;
+				if(button_5.counter>1)
+				{
+					LOG_INF("SW2\n");
+					button_5.blocker=1;						
+					//key_now = KEY_ENTER;
+					key_now[0] = KEY_T;
+					hid_buttons_press(key_now, 1);
+					k_msleep(50);
+					hid_buttons_release(key_now, 1);			
+				}
+			}
+		}
+		else
+		{
+			button_5.counter=0;
+			button_5.blocker=0;
 		}
 
 //---------------------------------------------------------------
@@ -1137,11 +1220,14 @@ int main(void)
 				{
 					LOG_INF("MUTE\n");
 					button_en.blocker=1;						
-					key_now[0] = 0x09;
-					key_now[1] = 0xE2;
-					hid_buttons_press(key_now, 2);
-					k_msleep(20);
-					hid_buttons_release(key_now, 2);			
+					
+					key_now[0] = KEY_MEDIA_MUTE;
+					//key_now[0] = KEY_MUTE;
+					//key_now[0] = 0x09;
+					//key_now[1] = 0xE2;
+					hid_buttons_press(key_now, 1);
+					k_msleep(50);
+					hid_buttons_release(key_now, 1);			
 				}
 			}
 		}
@@ -1182,13 +1268,15 @@ int main(void)
 			for(int i=0; i<volume; i++)
 			{
 				//key_now = KEY_VOLUMEUP;
-				key_now[0] = 0x09;
-				key_now[1] = 0xE9;
+				//key_now[0] = 0x09;
+				//key_now[1] = 0xE9;
+				key_now[0] = KEY_MEDIA_VOLUMEUP;
+				//key_now[0] = KEY_VOLUMEUP;
 				//key_now = KEY_U;
-				hid_buttons_press(key_now, 2);
-				k_msleep(20);
-				hid_buttons_release(key_now, 2);
-				k_msleep(20);
+				hid_buttons_press(key_now, 1);
+				k_msleep(50);
+				hid_buttons_release(key_now, 1);
+				k_msleep(50);
 			}
 			volume=0;			
 		}
@@ -1200,13 +1288,15 @@ int main(void)
 			for(int i=0; i<volume; i++)
 			{
 				//key_now = KEY_VOLUMEDOWN;
-				key_now[0] = 0x09;
-				key_now[1] = 0xEA;
+				//key_now[0] = 0x09;
+				//key_now[1] = 0xEA;
 				//key_now = KEY_D;
-				hid_buttons_press(key_now, 2);
-				k_msleep(20);
-				hid_buttons_release(key_now, 2);
-				k_msleep(20);
+				key_now[0] = KEY_MEDIA_VOLUMEDOWN;
+				//key_now[0] = KEY_VOLUMEDOWN;
+				hid_buttons_press(key_now, 1);
+				k_msleep(50);
+				hid_buttons_release(key_now, 1);
+				k_msleep(50);
 			}
 			volume=0;			
 		}
